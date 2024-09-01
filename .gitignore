@@ -1,0 +1,10 @@
+*.ipynb
+*.fig
+/logs/
+*.pth
+*.png
+*.jpg
+*.jpeg
+*.ckpt
+*.gif
+
