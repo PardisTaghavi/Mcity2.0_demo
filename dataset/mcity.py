@@ -153,8 +153,8 @@ if __name__ == "__main__":
 
     dataset = mcity(root_dir='/home/avalocal/mcity/data', transform=None)
     idx = 3800
-    img, label, depth = dataset.__getitem__(idx)
-    print(img.shape, label.shape, depth.shape)
+    sample = dataset[idx]
+    img, label, depth = sample['image'], sample['seg'], sample['depth']
     # 3, h, w | h, w | h, w
     ax1 = plt.subplot(1, 3, 1)
     ax1.imshow(img.permute(1, 2, 0))

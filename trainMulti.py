@@ -14,10 +14,10 @@ import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from tensorboardX import SummaryWriter
 
-from models.modelMulti import GLPDepth, Critc, PatchCritic
+from models.modelMulti import GLPDepth, Critc
 from models.optimizer import build_optimizers
 import utils.metrics as metrics
-from utils.criterion import SiLogLoss, CrossEntropyLoss, SmoothLoss
+from utils.criterion import SiLogLoss, CrossEntropyLoss
 import utils.logging as logging
 import torch.nn as nn
 from dataset.mcity import mcity
@@ -215,6 +215,7 @@ def main():
         writer.add_scalar('Training loss', loss_train, epoch) #total loss
         
         #save evry 20 epochs
+        
         if args.save_model and epoch % 20 == 0:
             print('Saving model...')
             torch.save(
