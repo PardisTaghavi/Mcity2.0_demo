@@ -1,28 +1,25 @@
 
 ```bash
-    git clone https://github.com/PardisTaghavi/SwinMTL.git
-    cd SwinMTL
+    git clone https://github.com/PardisTaghavi/Mcity2.0_demo.git
+    cd Mcity2.0_demo.git
 ```
 
 Create a conda environment and activate it:
 ```bash
-    conda env create --file environment.yml
-    conda activate prc
+    conda env create --file ros2_env.yaml
+    conda activate ros2_env
 ```
 
 ### Testing
 
-1. Download Pretrained Models:
-    - Click [here](add Link) to access the pretrained models.
-    - Download the pretrained models you need.
-    - Create a new folder named model_zoo in the project directory.
+Download Pretrained Models:
+    - [here](https://drive.google.com/file/d/1ksuJt2aEqr91tGQp_3oarJ4XREwFCC0A/view?usp=sharing) to access the pretrained models.
+    - Create a new folder named `model_zoo` and move the pretrained model into the model_zoo folder.
 
-2. Move Pretrained Models:
-    - Create a new folder named `model_zoo `
-    - After downloading, move the pretrained models into the model_zoo folder you created in the project directory.
-    - Refer to `testLive.ipynb` for testing.
-  
-### ROS Launch
+
 ```bash
-roslaunch SwinMTL_ROS swinmtl_launch.launch
+python mcityOutRos2.py 
 ```
+  
+
+   
