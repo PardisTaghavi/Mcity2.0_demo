@@ -1,6 +1,7 @@
 *.ipynb
 *.fig
 /logs/
+/weights/
 *.pth
 *.png
 *.jpg

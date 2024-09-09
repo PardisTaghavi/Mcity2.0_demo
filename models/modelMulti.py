@@ -33,7 +33,6 @@ def pretrained_weights_model(pretrained):
 class GLPDepth(nn.Module, PyTorchModelHubMixin):
     def __init__(self, args=None):
         super().__init__()
-        self.max_depth = args.max_depth
         
         if 'tiny' in args.backbone:
             embed_dim = 96
