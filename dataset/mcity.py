@@ -84,15 +84,9 @@ class mcity(Dataset):
 
         self.depth_files = []
         for d in self.dirs:
-            depth_files = [os.path.join(self.root_dir, d, 'depthsPre', f) for f in os.listdir(os.path.join(self.root_dir, d, 'depthsPre')) if f.endswith('.png')]
+            depth_files = [os.path.join(self.root_dir, d, 'depths', f) for f in os.listdir(os.path.join(self.root_dir, d, 'depths')) if f.endswith('.png')]
             depth_files.sort()
             self.depth_files.extend(depth_files)
-
-        
-
-
-
-
 
     def __len__(self):
 
@@ -100,31 +94,23 @@ class mcity(Dataset):
 
 
     def __getitem__(self, idx):
+        # print(len(self.image_files), len(self.label_files), len(self.depth_files), "lengths") 9243
 
-        # if self.image_files[idx].split('/')[-1].split('.')[0] != self.label_files[idx].split('/')[-1].split('.')[0]:
-        #     print("Image and label mismatch")
-        #     print(self.image_files[idx].split('/')[-1].split('_')
-        #     print(self.label_files[idx].split('/')[-1].split('.')[0])
-        #     print(self.depth_files[idx].split('/')[-1].split('.')[0])
-    
-        #     raise ValueError("Image and label mismatch")
-        
 
 
         image = cv2.cvtColor(cv2.imread(self.image_files[idx]), cv2.COLOR_BGR2RGB) 
-        #seg map
-        label = cv2.imread(self.label_files[idx], cv2.IMREAD_UNCHANGED)
-        label = label[:, :, 2] #extract the blue channel which is class
-        label[label>=19] = 19 #19 is the number of classes 
-                               #19 means 'unlabeled' class
-                         
-        #depth map
-        depth = cv2.imread(self.depth_files[idx], cv2.IMREAD_UNCHANGED)
-        R, G, B = depth[:, :, 2].astype(np.float32), depth[:, :, 1].astype(np.float32), depth[:, :, 0].astype(np.float32)
-        depth = (R + G * 256 + B * 256 * 256) / (256 * 256 * 256 - 1)
-        depth = 1000 * depth #depth in meters between 0 and 1000
 
-        depth[depth > 1000] = 1000
+        #seg map
+        label = cv2.imread(self.label_files[idx], cv2.IMREAD_UNCHANGED) #bgr
+        label = label[:, :, 2] #extract the red channel which is class
+        label[label> 19] = 19 #unknown class
+
+        #depth map
+        depth = cv2.imread(self.depth_files[idx], cv2.COLOR_BGR2RGB)
+        R, G, B = depth[:, :, 0].astype(np.float32), depth[:, :, 1].astype(np.float32), depth[:, :, 2].astype(np.float32)
+        depth = (R + G * 256 + B * 256 * 256) / (256 * 256 * 256 - 1)
+        depth = 100 * depth #depth in meters between 0 and 1000
+        depth[depth > 100] = 100
         depth[depth < 0] = 0
 
         # Apply transformations
@@ -137,13 +123,8 @@ class mcity(Dataset):
         image = torch.tensor(image, dtype=torch.float32).permute(2, 0, 1)  # C, H, W
         image = image / 255.0 # Normalize image
         label = torch.tensor(label)
-        # print(torch.unique(label))
         depth = torch.tensor(depth, dtype=torch.float32)
-        # print(depth.max(), depth.min()) 
-        # #use .copy() to avoid error
-        # label = torch.tensor(label.copy(), dtype=torch.long)
-        # depth = torch.tensor(depth.copy(), dtype=torch.float32)
-
+        
         return {'image': image, 'seg': label, 'depth': depth}
     
         

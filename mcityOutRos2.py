@@ -1,7 +1,9 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image, PointCloud2  , PointField
+from sensor_msgs_py import point_cloud2 as pc2
 from sensor_msgs.msg import CompressedImage
+import std_msgs.msg
 import torch
 from models.modelMulti import GLPDepth
 from labels import labels
@@ -9,12 +11,20 @@ import torch.backends.cudnn as cudnn
 import numpy as np
 import cv2
 import argparse
+from labels import labels
+from numpy.matlib import repmat
 
 #for clustering
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 
-ckpt_dir='/home/avalocal/thesis23/SwinMTL/logs/2024-09-01_13-25-34_mcity_4_swin_v2_base_simmim_deconv3_32_2_480_480_00005_3e-06_09_005_500_30_30_30_15_2_2_18_2/epoch_100_model.ckpt'
+FIELDS_XYZ = [
+    PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
+    PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
+    PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1)
+]
+
+ckpt_dir='/home/avalocal/thesis23/Mcity2.0_demo/epoch_40_model.ckpt'
 
 def load_glp_depth_model(args, device):
     model = GLPDepth(args=args).to(device)
@@ -30,6 +40,18 @@ def load_model(ckpt, model, optimizer=None):
     if optimizer is not None:
         optimizer_state = ckpt_dict['optimizer']
         optimizer.load_state_dict(optimizer_state)
+
+def get_color_mask(mask, labels, id_type='id'):
+
+    color_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+    if id_type == 'id':
+        for label in labels:
+            color_mask[mask == label.id] = label.color
+    elif id_type == 'trainId':
+        for label in labels:
+            color_mask[mask == label.trainId] = label.color
+
+    return color_mask
 
 def parse_opt():
     parser = argparse.ArgumentParser()
@@ -69,6 +91,9 @@ class PerceptionNode(Node):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         cudnn.benchmark = True
         self.model = load_glp_depth_model(args, self.device)
+        self.model.eval()
+
+
         w, h = 608, 320
         FOV = 90
         k = np.identity(3)
@@ -78,24 +103,14 @@ class PerceptionNode(Node):
         self.invK = np.linalg.inv(k)
 
 
-     
-
     def callback(self, image):
         print("Received image")
 
         img = np.frombuffer(image.data, dtype=np.uint8)
-        #bgr to rgb
         img = cv2.imdecode(img, cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (608, 320))
-        print(img.shape, " ", img.dtype, " img info") #(320, 608, 3)
         im = img.transpose(2, 0, 1) #3, 320, 608
         im = torch.from_numpy(im).to(self.device).float() / 255
-        #make it bgr
-        # im = im[[2, 1, 0], :, :]
-        
-
-        if self.model is None:
-            raise ValueError("Model not loaded")
         
         #publish image
         image = Image()
@@ -106,77 +121,61 @@ class PerceptionNode(Node):
         image.step = img.shape[1] * 3
         image.data = img.tobytes()
         self.pub_image.publish(image)
+        
+
+        if self.model is None:
+            raise ValueError("Model not loaded")
+        
 
         with torch.no_grad():
             pred = self.model(im.unsqueeze(0).to(self.device))
             pred_depth = pred['pred_d'].squeeze(0).squeeze(0)
             pred_depth = pred_depth.cpu().numpy()
-            pred_depth = (pred_depth * 1000).astype(np.uint16)
-            pred_seg = torch.argmax(pred['pred_seg'], dim=1)
-            pred_seg = pred_seg.squeeze(0).cpu().numpy().astype(np.uint8)     
+            pred_depth = (pred_depth * 100).astype(np.uint16) #depth in cm, #320, 608, #uint16
+            pred_seg = torch.argmax(pred['pred_seg'], dim=1)  #320, 608, #uint8
+            pred_seg =pred_seg.squeeze(0).cpu().numpy().astype(np.uint8)  #320, 608, #uint8            
+            pred_seg_colored = get_color_mask(pred_seg, labels, id_type='trainId')
         
-            print(pred_depth.shape, pred_seg.shape)
-            print(pred_depth.dtype, pred_seg.dtype)
-            print(pred_depth.min(), pred_depth.max(), "depth min max")
-            print(pred_seg.min(), pred_seg.max(), "seg min max") 
-            print(np.unique(pred_seg), "unique seg")
+        print(pred_depth.shape, pred_seg.shape, pred_seg_colored.shape, "shapes")
 
-        #get inary map of just car(1: car, 0: not car)
-        car_idx = pred_seg == 14
-        not_car_idx = pred_seg != 14
-        car_seg = np.zeros_like(pred_seg)
-        car_seg[car_idx] = 1
-        car_seg[not_car_idx] = 0
-        non_zero_idx_car = np.column_stack(np.where(car_seg == 1))
-        db = DBSCAN(eps=5, min_samples=50).fit(non_zero_idx_car)
-        labels = db.labels_
-        unique_labels = set(labels)
+        #binary map for cars
+        car_class = 14
+        car_mask = pred_seg == car_class
+        not_car_mask = pred_seg != car_class
+        pred_seg[car_mask] = 1
+        pred_seg[not_car_mask] = 0
+
+        non_zero = np.column_stack(np.where(pred_seg == 1))
+        db = DBSCAN(eps=5, min_samples=50).fit(non_zero)
+        labels2 = db.labels_
+        unique_labels = set(labels2)
         unique_labels.remove(-1)
 
-        centeroids = []
-        for label in unique_labels:
-            cluster = non_zero_idx_car[labels == label]
-            # pca = PCA(n_components=2)
-            # pca.fit(cluster)
-            centeroids.append(np.mean(cluster, axis=0))
-
-            # centeroids.append(pca.mean_)
-        centeroids = np.array(centeroids)
-        print(centeroids, "centeroids")
-        depth_values = []
-        for center in centeroids:
-            depth_values.append(pred_depth[int(center[0]), int(center[1])])
- 
-        #u, v, 1
-        points3d = np.column_stack((centeroids, np.ones(centeroids.shape[0])))
-        points3d = np.dot(self.invK, points3d.T).T
-        points3d = points3d * np.array(depth_values)[:, np.newaxis]
-
-        print(points3d, "3d points")
-        publish_pointcloud = True
-        if publish_pointcloud:
-            #publish pointcloud
-            pointcloud = PointCloud2()
-            pointcloud.header = image.header
-            pointcloud.height = 1
-            pointcloud.width = points3d.shape[0]
-            pointcloud.fields = [PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
-                                PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
-                                PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1)]
-            pointcloud.is_bigendian = False
-            pointcloud.point_step = 12
-            pointcloud.row_step = 12 * points3d.shape[0]
-            pointcloud.is_dense = True
-            pointcloud.data = points3d.astype(np.float32).tobytes()
-            self.pub_pointcloud.publish(pointcloud)
-
-
-
-
-
-
+        car_centers = []
+        car_depths_mean = []
         
-        publish_Image = False
+        for label in unique_labels:
+            class_points = non_zero[labels2 == label]
+            num_clusters = class_points.shape[0]            
+            car_centers.append(np.mean(class_points, axis=0))
+            car_depths_mean.append(np.mean(pred_depth[class_points[:, 0], class_points[:, 1]]))
+
+        car_centers = np.array(car_centers)
+        car_depths_mean = np.array(car_depths_mean)
+
+        # show car centers on pred_seg with red dots
+        for center in car_centers:
+            cv2.circle(pred_seg_colored, (int(center[1]), int(center[0])), 5, (255, 0, 0), -1)
+          
+        p2d_cars = np.array([car_centers[:, 1], car_centers[:, 0], np.ones_like(car_centers[:, 0])])
+        p3d_cars = np.dot(self.invK, p2d_cars) * car_depths_mean
+        p3d_cars = p3d_cars.T
+        p3d = np.concatenate([p3d_cars], axis=0)
+        print(p3d.shape, "p3d shape")
+       
+        
+        
+        publish_Image = True
         if publish_Image:
             # Publish depth image
             depth_image = Image()
@@ -188,14 +187,27 @@ class PerceptionNode(Node):
             depth_image.data = pred_depth.tobytes()
             self.pub_depth.publish(depth_image)
             # Publish segmentation image
+            
             seg_image = Image()
             seg_image.header = image.header
-            seg_image.height = pred_seg.shape[0]
-            seg_image.width = pred_seg.shape[1]
-            seg_image.encoding = "mono8"
-            seg_image.step = pred_seg.shape[1]
-            seg_image.data = pred_seg.tobytes()
+            seg_image.height = pred_seg_colored.shape[0]
+            seg_image.width = pred_seg_colored.shape[1]
+            seg_image.encoding = "rgb8"
+            seg_image.step = pred_seg_colored.shape[1] * 3
+            seg_image.data = pred_seg_colored.tobytes()
             self.pub_seg.publish(seg_image)
+
+        publish_pointcloud = True
+        if publish_pointcloud:
+            # Publish pointcloud
+            header = std_msgs.msg.Header()
+            header.stamp = self.get_clock().now().to_msg()
+            header.frame_id = "frame"
+            pointcloud = pc2.create_cloud_xyz32(header, p3d)
+            self.pub_pointcloud.publish(pointcloud)
+
+
+
 
     
 

@@ -159,9 +159,9 @@ def main():
 
     train_dataset, val_dataset = torch.utils.data.random_split(dataset, [int(len(dataset)*0.8), len(dataset)-int(len(dataset)*0.8)])
 
-    #limit dataset to 1000 train and 100 val
-    train_dataset = torch.utils.data.Subset(train_dataset, range(3000))
-    val_dataset = torch.utils.data.Subset(val_dataset, range(300))
+    # #limit dataset to 1000 train and 100 val
+    # train_dataset = torch.utils.data.Subset(train_dataset, range(3000))
+    # val_dataset = torch.utils.data.Subset(val_dataset, range(300))
 
     print("train_dataset: ", len(train_dataset))
     print("val_dataset: ", len(val_dataset))
@@ -278,7 +278,7 @@ def train(train_loader, model,crit, criterion_d, criterion_seg, log_txt, optimiz
         depth_gt = depth_gt/ depth_gt.max()
 
         dmin = 1e-3
-        dmax = 1000.0
+        dmax = 100.0
         # depth_gt = depth_gt/ depth_gt.max() 
         seg_gt = batch['seg'].to(device)      
         
@@ -295,11 +295,12 @@ def train(train_loader, model,crit, criterion_d, criterion_seg, log_txt, optimiz
         # print(pred_seg.shape, seg_gt.shape, "seg") #4, 20, h, w | 4, h, w
         #max min
         print("\n")
-        print(pred_depth.max(), pred_depth.min(), "depth") # 0 - 1000
+        print(pred_depth.max(), pred_depth.min(), "depth") # 0 - 100
         print(depth_gt.max(), depth_gt.min(), "depth_gt") # 0 -1
         print("\n")
-        print(pred_seg.max(), pred_seg.min(), "seg")
+        print(pred_seg_max.max(), pred_seg_max.min(), "seg") # 0 - 19
         print(seg_gt.max(), seg_gt.min(), "seg_gt")
+        print(torch.unique(seg_gt), torch.unique(pred_seg_max.squeeze(1)), "unique seg")
         print("\n")
     
 
@@ -413,10 +414,6 @@ def validate(val_loader, model, crit, criterion_d, criterion_seg, device, epoch,
         #     pred_d = pred_s/sliding_masks
         #     pred_seg = pred_s2/sliding_masks
 
-
-
-        dmin = 1e-3
-        dmax = 1000.0
         depth_gt = depth_gt.squeeze()     
         depth_gt = depth_gt/ depth_gt.max()
         pred_seg = pred_seg                 

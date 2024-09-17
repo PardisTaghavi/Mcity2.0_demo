@@ -76,7 +76,7 @@ class GLPDepth(nn.Module, PyTorchModelHubMixin):
         self.last_layer_seg = nn.Sequential(
             nn.Conv2d(channels_out, channels_out, kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=False),
-            nn.Conv2d(channels_out, self.num_classes, kernel_size=3, stride=1, padding=1)
+            nn.Conv2d(channels_out, 20, kernel_size=3, stride=1, padding=1)
             )
         
 
@@ -97,7 +97,7 @@ class GLPDepth(nn.Module, PyTorchModelHubMixin):
 
         #from log space to meters
         d_min=1e-3
-        d_max=1000.0
+        d_max=100.0
         out_depth = out_depth/ out_depth.max() 
         out_seg = self.last_layer_seg(out)
 
@@ -247,34 +247,3 @@ class Critc(nn.Module):
             return outC
 
     
-class PatchCritic(nn.Module):
-
-    ''' 
-    input: depth map 1* 1* H* W and segmentation map 1* 1* H* W
-    output size: 
-    '''
-
-    def __init__(self):
-        super().__init__()
-
-        self.Clayers=nn.Sequential(nn.Conv2d(1, 64, kernel_size=4, stride=2, padding=1),
-                                        nn.LeakyReLU(0.2),
-                                        nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-                                        nn.BatchNorm2d(128),
-                                        nn.LeakyReLU(0.2),
-                                        nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),
-                                        nn.BatchNorm2d(256),
-                                        nn.LeakyReLU(0.2),
-                                        nn.Conv2d(256, 512, kernel_size=4, stride=1, padding=1),
-                                        nn.BatchNorm2d(512),
-                                        nn.LeakyReLU(0.2),
-                                        nn.Conv2d(512, 1, kernel_size=4, stride=1, padding=1)
-                                        )
-        for m in self.Clayers.modules():
-            if isinstance(m, nn.Conv2d):
-                normal_init(m, std=0.001, bias=0)
-
-    def forward(self, x):
-
-        outC= self.Clayers(x) 
-        return outC
