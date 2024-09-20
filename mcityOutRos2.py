@@ -95,11 +95,12 @@ class PerceptionNode(Node):
 
 
         w, h = 608, 320
+        # w,h = 1200,600
         FOV = 90
         k = np.identity(3)
         k[0, 2] = w / 2
         k[1, 2] = h / 2
-        k[0, 0] = k[1, 1] = w / (2 * np.tan(FOV * np.pi / 360))
+        k[0, 0] = k[1, 1] = w / (2 * np.tan(FOV * np.pi / 360)) #=w/2
         self.invK = np.linalg.inv(k)
 
 
@@ -157,22 +158,40 @@ class PerceptionNode(Node):
         for label in unique_labels:
             class_points = non_zero[labels2 == label]
             num_clusters = class_points.shape[0]            
-            car_centers.append(np.mean(class_points, axis=0))
+            car_centers.append(np.mean(class_points, axis=0)) #u, v
+            
             car_depths_mean.append(np.mean(pred_depth[class_points[:, 0], class_points[:, 1]]))
 
         car_centers = np.array(car_centers)
         car_depths_mean = np.array(car_depths_mean)
+        
 
         # show car centers on pred_seg with red dots
         for center in car_centers:
             cv2.circle(pred_seg_colored, (int(center[1]), int(center[0])), 5, (255, 0, 0), -1)
           
-        p2d_cars = np.array([car_centers[:, 1], car_centers[:, 0], np.ones_like(car_centers[:, 0])])
+        p2d_cars = np.array([car_centers[:, 0], car_centers[:, 1], np.ones_like(car_centers[:, 0])])
         p3d_cars = np.dot(self.invK, p2d_cars) * car_depths_mean
         p3d_cars = p3d_cars.T
-        p3d = np.concatenate([p3d_cars], axis=0)
-        print(p3d.shape, "p3d shape")
-       
+        print(p3d_cars.shape, "p3d_cars shape")
+        p3d = p3d_cars
+
+
+        #camera.get_transform().get_inverse_matrix() and here is the result: [[-0.12058158218860626, 0.9921349287033081, -0.03359150141477585, 30.274852752685547], [-0.9926763772964478, -0.12075912207365036, -0.0033001673873513937, 10.892216682434082], [-0.007330691441893578, 0.03294754773378372, 0.999430239200592, -236.77127075195312], [0.0, 0.0, 0.0, 1.0]]
+        
+        # p_inv = np.array([[-0.12058158218860626, 0.9921349287033081, -0.03359150141477585, 30.274852752685547], [-0.9926763772964478, -0.12075912207365036, -0.0033001673873513937, 10.892216682434082], [-0.007330691441893578, 0.03294754773378372, 0.999430239200592, -236.77127075195312], [0.0, 0.0, 0.0, 1.0]]
+        # )
+
+        # p3d = np.column_stack((p3d, np.ones(p3d.shape[0])))
+        # p3d = np.dot(p_inv, p3d.T).T
+        # p3d = p3d[:, :3]
+
+
+        x= p3d[:, 0]
+        y= p3d[:, 2]
+        z= p3d[:, 1]
+        p3d = np.column_stack((x, y, z))
+              
         
         
         publish_Image = True
@@ -204,6 +223,11 @@ class PerceptionNode(Node):
             header.stamp = self.get_clock().now().to_msg()
             header.frame_id = "frame"
             pointcloud = pc2.create_cloud_xyz32(header, p3d)
+            # Print x, y, z values
+            for point in p3d:
+                x, y, z = point  # Assuming p3d is a list of (x, y, z)
+                print(f"x: {x}, y: {y}, z: {z}")
+            
             self.pub_pointcloud.publish(pointcloud)
 
 
