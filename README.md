@@ -13,8 +13,9 @@ Create a conda environment and activate it:
 ### Testing
 
 Download Pretrained Models:
-    - [here](https://drive.google.com/file/d/1ksuJt2aEqr91tGQp_3oarJ4XREwFCC0A/view?usp=sharing) to access the pretrained models.
-    - Create a new folder named `model_zoo` and move the pretrained model into the model_zoo folder.
+
+    - [here](https://drive.google.com/drive/folders/1Ob4LHnGlqkPGXaW-3WUvRFrGYnLYK84q?usp=drive_link) to access the pretrained models.
+    - move the pretrained weights into the weights folder.
 
 
 ```bash
