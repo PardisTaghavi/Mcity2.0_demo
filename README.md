@@ -12,10 +12,9 @@ Create a conda environment and activate it:
 
 ### Testing
 
-Download Pretrained Models:
+Download Pretrained Models [here](https://drive.google.com/drive/folders/1Ob4LHnGlqkPGXaW-3WUvRFrGYnLYK84q?usp=sharing).
 
-    - [here](https://drive.google.com/drive/folders/1Ob4LHnGlqkPGXaW-3WUvRFrGYnLYK84q?usp=drive_link) to access the pretrained models.
-    - move the pretrained weights into the weights folder.
+move the pretrained weights into the weights folder.
 
 
 ```bash
