@@ -12,9 +12,9 @@ Create a conda environment and activate it:
 
 ### Testing
 
-Download Pretrained Models:
-    - [here](https://drive.google.com/file/d/1ksuJt2aEqr91tGQp_3oarJ4XREwFCC0A/view?usp=sharing) to access the pretrained models.
-    - Create a new folder named `model_zoo` and move the pretrained model into the model_zoo folder.
+Download Pretrained Models [here](https://drive.google.com/drive/folders/1Ob4LHnGlqkPGXaW-3WUvRFrGYnLYK84q?usp=sharing).
+
+move the pretrained weights into the weights folder.
 
 
 ```bash
@@ -22,11 +22,6 @@ python mcityOutRos2.py
 ```
 
 
-
-<p align="center">
-  <img src="images/swinout.png" alt="Image 1" width="300"/>
-  <img src="images/cluster.png" alt="Image 2" width="300"/>
-</p>
 
 train_dataset:  7394
 val_dataset:  1849
