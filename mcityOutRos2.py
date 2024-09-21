@@ -98,9 +98,10 @@ class PerceptionNode(Node):
         # w,h = 1200,600
         FOV = 90
         k = np.identity(3)
-        k[0, 2] = w / 2
-        k[1, 2] = h / 2
-        k[0, 0] = k[1, 1] = w / (2 * np.tan(FOV * np.pi / 360)) #=w/2
+        k[0, 2] = w / 2 #cx
+        k[1, 2] = h / 2 #cy
+        k[0, 0] = k[1, 1] = w / (2 * np.tan(FOV * np.pi / 360)) #=w/2 #fx=fy
+        self.k = k
         self.invK = np.linalg.inv(k)
 
 
@@ -171,8 +172,23 @@ class PerceptionNode(Node):
             cv2.circle(pred_seg_colored, (int(center[1]), int(center[0])), 5, (255, 0, 0), -1)
           
         p2d_cars = np.array([car_centers[:, 0], car_centers[:, 1], np.ones_like(car_centers[:, 0])])
-        p3d_cars = np.dot(self.invK, p2d_cars) * car_depths_mean
-        p3d_cars = p3d_cars.T
+
+        for i in range(len(car_centers)):
+            print("cx, cy, 1", self.k[0, 2], self.k[1, 2], 1)
+            print(p2d_cars[:, i], car_depths_mean[i], "p2d_cars and car_depths_mean")
+
+
+        # # p3d_cars = np.dot(self.invK, p2d_cars) * car_depths_mean
+
+        x = (p2d_cars[0, :] - self.k[0, 2] ) * car_depths_mean / self.k[0, 0] 
+        y = (p2d_cars[1, :] - self.k[1, 2] ) * car_depths_mean / self.k[1, 1] 
+        z = car_depths_mean
+
+        
+
+        p3d_cars = np.column_stack((x, y, z))
+
+        # # p3d_cars = p3d_cars.T
         print(p3d_cars.shape, "p3d_cars shape")
         p3d = p3d_cars
 
@@ -187,10 +203,10 @@ class PerceptionNode(Node):
         # p3d = p3d[:, :3]
 
 
-        x= p3d[:, 0]
-        y= p3d[:, 2]
-        z= p3d[:, 1]
-        p3d = np.column_stack((x, y, z))
+        # x= p3d[:, 0]
+        # y= p3d[:, 2]
+        # z= p3d[:, 1]
+        # p3d = np.column_stack((x, y, z))
               
         
         
